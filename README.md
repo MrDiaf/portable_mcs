@@ -39,7 +39,7 @@ That's all. The first run downloads about 140 MB, generates the world, and print
 ```
 
 - **Minecraft 1.8.8:** go to **Multiplayer → Add Server** and enter the first address.
-- **Eaglercraft (browser):** open an EaglercraftX 1.8 client, go to **Multiplayer → Add Server** and enter the `ws://` address. See [Eaglercraft notes](#eaglercraft-notes).
+- **Eaglercraft (browser):** see [Playing with Eaglercraft](#playing-with-eaglercraft).
 
 By running the server you accept the [Minecraft EULA](https://www.minecraft.net/en-us/eula).
 
@@ -100,19 +100,39 @@ Any other `server.properties` option (for example `level-seed` or `spawn-protect
 - **`ONLINE_MODE`:** `true` only lets players with a paid Minecraft account join through regular Minecraft. `false` lets anyone join under any name. Use `false` only on a trusted LAN.
 - **`EAGLERCRAFT`:** `false` turns off browser support and runs the 1.8.8 server directly on `PORT`, without the proxy.
 
-## Eaglercraft notes
+## Playing with Eaglercraft
 
-**How it works:** Eaglercraft runs in a browser, and a browser can only connect over WebSockets, which a plain Minecraft server doesn't speak.
-So when `EAGLERCRAFT = true`, a [BungeeCord](https://www.spigotmc.org/wiki/bungeecord/) proxy with the [EaglerXServer](https://modrinth.com/mod/eaglercraftxserver) plugin listens on `PORT`.
-It accepts both regular Minecraft and Eaglercraft connections on that one port, and forwards everyone to the 1.8.8 server.
-The 1.8.8 server itself only listens on `127.0.0.1:25566` (`BACKEND_PORT`), so it can't be reached from outside.
+Browsers block `ws://` connections from pages loaded over `https://`. If you use an Eaglercraft client from a website, you'll see:
+*"you are on a https: page! html5 will only allow wss://"*.
+The fix is to host the client yourself, over plain `http://`, on the same port as the server:
+
+1. Get an **EaglercraftX 1.8 offline client**. This is a single `.html` file, usually offered as "Offline Download" on Eaglercraft sites.
+2. Put it in the `web/` folder of this repo. Any file name works.
+3. Run `make restart`. `make ip` now shows a browser link:
+   ```
+     Play in browser:  http://192.168.0.170:25565
+   ```
+4. Open that link, go to **Multiplayer → Add Server** and enter the `ws://` address from `make ip`.
+
+Everything in `web/` is served at `http://IP:PORT/`. If the folder holds a single `.html` file, it's also served as `index.html`.
+
+Notes:
 
 - **Use an EaglercraftX 1.8 client.** Older Eaglercraft 1.5 clients won't work.
-- **Use `ws://`, not `wss://`.** A browser only allows `ws://` connections from a page that was loaded over `http://` or from a file.
-  If you open an Eaglercraft client from an `https://` website, it can only use secure `wss://`, and connections to `ws://192.168...` will fail.
-  On a LAN, the easiest fix is a downloaded offline client (a single `.html` file) opened from disk.
-  To use `wss://` over the internet, put a TLS reverse proxy (nginx, Caddy) in front of `PORT`, or set up `tls_config` in `proxy/plugins/EaglercraftXServer/listeners.yml`.
+- **Opening the downloaded `.html` file straight from disk also works**, without the `web/` folder.
+- **Joining from an `https://` Eaglercraft website** needs secure `wss://`. That means a TLS certificate for a domain name, through a reverse proxy (nginx, Caddy) in front of `PORT` or through `tls_config` in `proxy/plugins/EaglercraftXServer/listeners.yml`.
 - **Eaglercraft players have no Mojang account, so they can pick any username.** To control who joins, use the whitelist from `make console`: `whitelist add <name>`, then `whitelist on`.
+
+### How it works
+
+Eaglercraft runs in a browser, and a browser can only connect over WebSockets, which a plain Minecraft server doesn't speak.
+So when `EAGLERCRAFT = true`, a [BungeeCord](https://www.spigotmc.org/wiki/bungeecord/) proxy listens on `PORT`.
+It runs two plugins:
+
+- [EaglerXServer](https://modrinth.com/mod/eaglercraftxserver) accepts regular Minecraft and Eaglercraft connections on that one port.
+- [EaglerWeb](https://modrinth.com/plugin/eaglerweb) serves the `web/` folder.
+
+The proxy forwards everyone to the 1.8.8 server, which only listens on `127.0.0.1:25566` (`BACKEND_PORT`), so it can't be reached from outside.
 
 ## Playing with others
 
@@ -129,7 +149,8 @@ scripts/mc.sh     the logic behind the make commands
 runtime/java8/    portable Java 8 for the 1.8.8 server (downloaded, git-ignored)
 runtime/java21/   portable Java 21 for the proxy (downloaded, git-ignored)
 server/           server jar, world, configs and logs (git-ignored)
-proxy/            BungeeCord, the EaglerXServer plugin and their configs (git-ignored)
+proxy/            BungeeCord, its plugins and their configs (git-ignored)
+web/              put an Eaglercraft client .html here (contents git-ignored)
 ```
 
 - **Back up the world:** stop the server with `make down`, then copy `server/world/`.

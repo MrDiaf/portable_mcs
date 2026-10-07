@@ -1,3 +1,5 @@
 runtime/
 server/
 proxy/
+web/*
+!web/.gitkeep

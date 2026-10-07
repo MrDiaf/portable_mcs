@@ -41,6 +41,14 @@ EAGLER_URL="https://cdn.modrinth.com/data/Gtsn3SWv/versions/PN1bJIda/EaglerXServ
 EAGLER_SHA1="f0b54a0dc47b512a1721c49eb94e3e4ff6c3302e"
 EAGLER_LISTENERS="$PROXY_DIR/plugins/EaglercraftXServer/listeners.yml"
 
+# EaglerWeb 1.0.1 plugin: serves the files in web/ over http://IP:PORT, so
+# browsers can load an Eaglercraft client that is allowed to use ws://
+EAGLERWEB_JAR="$PROXY_DIR/plugins/EaglerWeb.jar"
+EAGLERWEB_URL="https://cdn.modrinth.com/data/U6w6KGWx/versions/58YjqiHB/EaglerWeb.jar"
+EAGLERWEB_SHA1="8030568b09ba7aeab8ecd80f14d1f059d56145d1"
+WEB_DIR="$ROOT/web"
+WEB_ROOT="$PROXY_DIR/plugins/EaglerWeb/web"
+
 info() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m==>\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m==>\033[0m %s\n' "$*" >&2; exit 1; }
@@ -241,6 +249,28 @@ EOF
     set_yaml "$cfg" '    '  address      "127.0.0.1:$BACKEND_PORT"
     set_yaml "$EAGLER_LISTENERS" "$item" inject_address "'0.0.0.0:$PORT'"
     sed -i "/^  server_motd:/{n;s|^  - .*|  - $(sed_escape "$motd")|}" "$EAGLER_LISTENERS"
+
+    sync_web
+}
+
+# Copy web/ to the EaglerWeb document root. A lone client .html that isn't
+# called index.html is also served as index.html, so http://IP:PORT/ opens it.
+sync_web() {
+    mkdir -p "$WEB_DIR"
+    rm -rf "$WEB_ROOT"
+    mkdir -p "$WEB_ROOT"
+    cp -r "$WEB_DIR/." "$WEB_ROOT/"
+    rm -f "$WEB_ROOT/.gitkeep"
+    if [ ! -f "$WEB_ROOT/index.html" ]; then
+        local pages=("$WEB_ROOT"/*.html)
+        if [ "${#pages[@]}" -eq 1 ] && [ -f "${pages[0]}" ]; then
+            cp "${pages[0]}" "$WEB_ROOT/index.html"
+        fi
+    fi
+}
+
+has_web_client() {
+    [ -f "$WEB_ROOT/index.html" ]
 }
 
 # wait_for <description> <session> <seconds> <check command...>
@@ -339,6 +369,7 @@ cmd_install() {
         install_java 21
         install_file "BungeeCord proxy" "$BUNGEE_URL" "$BUNGEE_SHA1" "$BUNGEE_JAR"
         install_file "EaglerXServer plugin" "$EAGLER_URL" "$EAGLER_SHA1" "$EAGLER_JAR"
+        install_file "EaglerWeb plugin" "$EAGLERWEB_URL" "$EAGLERWEB_SHA1" "$EAGLERWEB_JAR"
     fi
     info "Everything is downloaded."
 }
@@ -387,6 +418,13 @@ cmd_ip() {
     printf '  Minecraft 1.8.8:  \033[1m%s:%s\033[0m\n' "$ip" "$PORT"
     if eagler_enabled; then
         printf '  Eaglercraft:      \033[1mws://%s:%s\033[0m\n' "$ip" "$PORT"
+        if has_web_client; then
+            printf '  Play in browser:  \033[1mhttp://%s:%s\033[0m\n' "$ip" "$PORT"
+        else
+            echo
+            echo "  To play from a browser, put an EaglercraftX 1.8 offline client (.html)"
+            echo "  in the web/ folder and run 'make restart'."
+        fi
     fi
     echo
     echo "  On this PC use localhost:$PORT$(eagler_enabled && echo " / ws://localhost:$PORT")"
