@@ -15,7 +15,7 @@ HARDCORE     = false
 MAX_PLAYERS  = 20
 MOTD         = A Minecraft 1.8.8 Server
 # false lets non-premium (cracked) clients join
-ONLINE_MODE  = true
+ONLINE_MODE  = false
 PVP          = true
 VIEW_DISTANCE = 10
 
